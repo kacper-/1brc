@@ -1,12 +1,13 @@
 package com.km;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.OutputStreamWriter;
+import java.util.Locale;
 import java.util.Random;
 
 public class CreateFile {
-    private static final int SIZE = 1000000000;
+    private static final int SIZE = 100000000;
     private static final int ID_COUNT = 10000;
     private static final String SEPARATOR = ";";
 
@@ -15,9 +16,9 @@ public class CreateFile {
         for (int i = 0; i < ID_COUNT; i++)
             ids[i] = String.format("id%04d", i);
 
-        File file = new File("./input.txt");
+        File file = new File("./input4.txt");
         try {
-            OutputStreamWriter writer = new OutputStreamWriter(new FileOutputStream(file));
+            BufferedOutputStream writer = new BufferedOutputStream(new FileOutputStream(file));
             int j;
             float temp;
             for (int i = 0; i < SIZE; i++) {
@@ -26,7 +27,7 @@ public class CreateFile {
                 temp /= 10;
                 if (new Random().nextBoolean())
                     temp = -temp;
-                writer.write(String.format("%s%s%.1f\n", ids[j], SEPARATOR, temp));
+                writer.write(String.format(Locale.US, "%s%s%.1f\n", ids[j], SEPARATOR, temp).getBytes());
             }
             writer.close();
         } catch (Exception e) {
