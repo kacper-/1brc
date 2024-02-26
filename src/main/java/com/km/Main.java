@@ -13,7 +13,7 @@ public class Main {
     private static final Map<String, float[]> map = new HashMap<>();
     private static int j = 0;
     private static int sep = 0;
-    private static final char[] arr = new char[120];
+    private static final char[] arr = new char[110];
     private static final byte[] buffer = new byte[SIZE];
 
     public static void main(String[] args) {
@@ -62,8 +62,7 @@ public class Main {
             }
             if (buffer[i] == 10) {
                 String key = new String(arr, 0, sep);
-                String val = new String(arr, sep + 1, j - sep - 1);
-                float f = Float.parseFloat(val);
+                float f = getFloat(sep, j - 1);
 
                 if (map.containsKey(key)) {
                     float[] ff = map.get(key);
@@ -79,5 +78,30 @@ public class Main {
             }
             j++;
         }
+    }
+
+    private static float getFloat(int from, int to) {
+        float val = 0f;
+        int c = 0;
+        int d;
+        for (int i = to; i > from; i--) {
+            d = arr[i] - 48;
+            if (d == -3)
+                return -val / 10;
+            if (d > -1) {
+                switch (c) {
+                    case 0:
+                        val = d;
+                        break;
+                    case 1:
+                        val += 10 * d;
+                        break;
+                    case 2:
+                        val += 100 * d;
+                }
+                c++;
+            }
+        }
+        return val / 10;
     }
 }
