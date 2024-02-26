@@ -42,7 +42,7 @@ public class Main {
             float[] ff;
             while ((key = pq.poll()) != null) {
                 ff = map.get(key);
-                writer.write(key + "\t" + ff[0] + "\t" + ff[1] / ff[3] + '\t' + ff[2] + '\n');
+                writer.write(key + ' ' + ff[0] + ' ' + ff[1] / ff[3] + ' ' + ff[2] + '\n');
             }
 
             writer.flush();
