@@ -6,42 +6,85 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
 
 public class Main {
-    private static final int SIZE = 100000;
-    private static ByteBuffer bb;
-    private static final Map<String, float[]> map = new HashMap<>();
-    private static int j = 0;
-    private static int sep = 0;
-    private static final char[] arr = new char[110];
-    private static final byte[] buffer = new byte[SIZE];
+    private static final int SIZE = 1000000;
+    private static ByteBuffer[] bb;
+    private static ArrayList<Map<String, float[]>> map = new ArrayList<>();
+    private static int[] j;
+    private static int[] sep;
+    private static char[][] arr;
+    private static byte[][] buffer;
+    private static int CPU_COUNT;
+    private static Thread[] threads;
+    private static CountDownLatch latch = new CountDownLatch(0);
 
     public static void main(String[] args) {
+        CPU_COUNT = 4;//Runtime.getRuntime().availableProcessors() - 1;
+        bb = new ByteBuffer[CPU_COUNT];
+        j = new int[CPU_COUNT];
+        sep = new int[CPU_COUNT];
+        buffer = new byte[CPU_COUNT][SIZE];
+        threads = new Thread[CPU_COUNT];
+        for (int i = 0; i < CPU_COUNT; i++) {
+            bb[i] = ByteBuffer.allocateDirect(SIZE);
+            j[i] = 0;
+            sep[i] = 0;
+            map.add(new HashMap<>());
+        }
+        arr = new char[CPU_COUNT][110];
         int pos;
+        int tCount;
+
         try {
             long start = new Date().getTime();
             RandomAccessFile file = new RandomAccessFile("./input4.txt", "r");
             FileChannel channel = file.getChannel();
-            bb = ByteBuffer.allocateDirect(SIZE);
 
             while (channel.read(bb) > -1) {
-                pos = bb.position();
-                bb.get(0, buffer, 0, pos);
-                bb.position(0);
-                readBuffer(pos);
+                latch.await();
+                tCount = 0;
+                for (int t = 0; t < CPU_COUNT; t++) {
+                    pos = bb[t].position();
+                    if (pos > 0) {
+                        prepareArr(t, pos);
+                        bb[t].get(0, buffer[t], 0, pos);
+                        bb[t].position(0);
+                        tCount++;
+                        final int fpos = pos;
+                        final int ft = t;
+                        threads[t] = new Thread(() -> readBuffer(fpos, ft));
+                    }
+                }
+                latch = new CountDownLatch(tCount);
+                for (int i = 0; i < tCount; i++)
+                    threads[i].start();
             }
 
             channel.close();
             file.close();
+            Map<String, float[]> full = new HashMap<>(map.get(0));
+            for (int t = 1; t < CPU_COUNT; t++) {
+                for (String key : map.get(t).keySet()) {
+                    float[] val = map.get(t).get(key);
+                    if (full.containsKey(key)) {
+                        float[] oldVal = full.get(key);
+                        full.put(key, new float[]{Math.min(oldVal[0], val[0]), oldVal[1] + val[1], Math.max(oldVal[2], val[2]), oldVal[3] + val[3]});
+                    } else {
+                        full.put(key, val);
+                    }
+                }
+            }
 
             PriorityQueue<String> pq = new PriorityQueue<>(Comparator.naturalOrder());
-            pq.addAll(map.keySet());
+            pq.addAll(full.keySet());
 
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(System.out));
             String key;
             float[] ff;
             while ((key = pq.poll()) != null) {
-                ff = map.get(key);
+                ff = full.get(key);
                 writer.write(key + ' ' + ff[0] + ' ' + ff[1] / ff[3] + ' ' + ff[2] + '\n');
             }
 
@@ -54,38 +97,62 @@ public class Main {
         }
     }
 
-    private static void readBuffer(int pos) {
-        for (int i = 0; i < pos; i++) {
-            arr[j] = (char) buffer[i];
-            if (buffer[i] == 59) {
-                sep = j;
+    private static void prepareArr(int t, int pos) {
+        int i;
+        if (t == 0) {
+            for (i = 0; i < arr[CPU_COUNT - 1].length; i++) {
+                arr[0][i] = arr[CPU_COUNT - 1][i];
+                j[0] = j[CPU_COUNT - 1];
+                sep[0] = sep[CPU_COUNT - 1];
             }
-            if (buffer[i] == 10) {
-                String key = new String(arr, 0, sep);
-                float f = getFloat(sep, j - 1);
+        } else {
+            int p = 0;
+            for (i = pos - 1; i > -1; i--) {
+                arr[t][p] = (char) buffer[t - 1][i];
+                if (buffer[t - 1][i] == 10) {
+                    j[t] = p;
+                    return;
+                }
+                if (buffer[t - 1][i] == 59)
+                    sep[t] = p;
+                p++;
+            }
+        }
+    }
 
-                if (map.containsKey(key)) {
-                    float[] ff = map.get(key);
+    private static void readBuffer(int pos, int idx) {
+        for (int i = 0; i < pos; i++) {
+            arr[idx][j[idx]] = (char) buffer[idx][i];
+            if (buffer[idx][i] == 59) {
+                sep[idx] = j[idx];
+            }
+            if (buffer[idx][i] == 10) {
+                String key = new String(arr[idx], 0, sep[idx]);
+                float f = getFloat(sep[idx], j[idx] - 1, idx);
+
+                if (map.get(idx).containsKey(key)) {
+                    float[] ff = map.get(idx).get(key);
                     ff[0] = Math.min(f, ff[0]);
                     ff[1] += f;
                     ff[2] = Math.max(f, ff[2]);
                     ff[3]++;
-                    map.put(key, ff);
+                    map.get(idx).put(key, ff);
                 } else
-                    map.put(key, new float[]{f, f, f, 1f});
+                    map.get(idx).put(key, new float[]{f, f, f, 1f});
 
-                j = -1;
+                j[idx] = -1;
             }
-            j++;
+            j[idx]++;
         }
+        latch.countDown();
     }
 
-    private static float getFloat(int from, int to) {
+    private static float getFloat(int from, int to, int idx) {
         float val = 0f;
         int c = 0;
         int d;
         for (int i = to; i > from; i--) {
-            d = arr[i] - 48;
+            d = arr[idx][i] - 48;
             if (d == -3)
                 return -val / 10;
             if (d > -1) {
