@@ -35,7 +35,7 @@ public class Main {
         }
         arr = new char[CPU_COUNT][110];
         int pos;
-        int tCount = 0;
+        int tCount;
 
         try {
             long start = new Date().getTime();
