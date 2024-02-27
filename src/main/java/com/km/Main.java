@@ -13,51 +13,56 @@ public class Main {
     private static final AtomicInteger callCounter = new AtomicInteger(0);
     private static final int SIZE = 10000000;
     private static ByteBuffer[] bb;
+    private static ByteBuffer one;
     private static final ArrayList<Map<String, float[]>> map = new ArrayList<>();
-    private static int[] j;
-    private static int[] sep;
-    private static char[][] arr;
     private static byte[][] buffer;
     private static int CPU_COUNT;
 
     public static void main(String[] args) {
-        CPU_COUNT = 3;//Runtime.getRuntime().availableProcessors() / 3;
+        CPU_COUNT = Runtime.getRuntime().availableProcessors() - 2;
         bb = new ByteBuffer[CPU_COUNT];
-        j = new int[CPU_COUNT];
-        sep = new int[CPU_COUNT];
-        buffer = new byte[CPU_COUNT][SIZE];
+        buffer = new byte[CPU_COUNT][SIZE + 110];
         Thread[] threads = new Thread[CPU_COUNT];
         for (int i = 0; i < CPU_COUNT; i++) {
             bb[i] = ByteBuffer.allocateDirect(SIZE);
-            j[i] = 0;
-            sep[i] = 0;
             map.add(new HashMap<>());
         }
-        arr = new char[CPU_COUNT][110];
+        one = ByteBuffer.allocate(1);
         int pos;
         int tCount;
-
         try {
             long start = new Date().getTime();
-            RandomAccessFile file = new RandomAccessFile("/Users/kacper/repo/1brc/input4.txt", "r");
+            RandomAccessFile file = new RandomAccessFile("/Users/kacper/repo/1brc/input.txt", "r");
             FileChannel channel = file.getChannel();
-
-            while (channel.read(bb) > -1) {
+            boolean read = true;
+            while (read) {
                 tCount = 0;
                 for (int t = 0; t < CPU_COUNT; t++) {
-                    pos = bb[t].position();
-                    if (pos > 0) {
-                        prepareArr(t, pos);
-                        bb[t].get(0, buffer[t], 0, pos);
-                        bb[t].position(0);
-                        tCount++;
-                        final int fpos = pos;
-                        final int ft = t;
-                        final Map<String, float[]> m = map.get(t);
-                        threads[t] = new Thread(() -> readBuffer(fpos, ft, m));
-                        threads[t].start();
+                    if (channel.read(bb[t]) < 0) {
+                        read = false;
+                        break;
                     }
+                    pos = bb[t].position();
+                    bb[t].get(0, buffer[t], 0, pos);
+                    if (channel.position() < channel.size() && buffer[t][pos - 1] != 10) {
+                        for (int a = 0; a < 110; a++) {
+                            channel.read(one);
+                            byte b = one.get(0);
+                            buffer[t][pos] = b;
+                            pos++;
+                            if (b == 10)
+                                break;
+                        }
+                    }
+                    bb[t].position(0);
+                    tCount++;
+                    final int ft = t;
+                    final int fpos = pos;
+                    final Map<String, float[]> m = map.get(t);
+                    threads[t] = new Thread(() -> readBuffer(fpos, ft, m));
                 }
+                for (int i = 0; i < tCount; i++)
+                    threads[i].start();
                 for (int i = 0; i < tCount; i++)
                     threads[i].join();
             }
@@ -100,39 +105,17 @@ public class Main {
         }
     }
 
-    private static void prepareArr(int t, int pos) {
-        int i;
-        if (t == 0) {
-            for (i = 0; i < arr[CPU_COUNT - 1].length; i++) {
-                arr[0][i] = arr[CPU_COUNT - 1][i];
-                j[0] = j[CPU_COUNT - 1];
-                sep[0] = sep[CPU_COUNT - 1];
-            }
-        } else {
-            int p = 0;
-            for (i = pos - 1; i > -1; i--) {
-                arr[t][p] = (char) buffer[t - 1][i];
-                if (buffer[t - 1][i] == 10) {
-                    j[t] = p;
-                    return;
-                }
-                if (buffer[t - 1][i] == 59)
-                    sep[t] = p;
-                p++;
-            }
-        }
-    }
-
     private static void readBuffer(int pos, int idx, Map<String, float[]> m) {
         long start = new Date().getTime();
+        int ls = 0;
+        int sep = 0;
         for (int i = 0; i < pos; i++) {
-            arr[idx][j[idx]] = (char) buffer[idx][i];
             if (buffer[idx][i] == 59) {
-                sep[idx] = j[idx];
+                sep = i;
             }
             if (buffer[idx][i] == 10) {
-                String key = new String(arr[idx], 0, sep[idx]);
-                float f = getFloat(sep[idx], j[idx] - 1, idx);
+                String key = new String(buffer[idx], ls, sep - ls);
+                float f = getFloat(sep, i - 1, idx);
 
                 if (m.containsKey(key)) {
                     float[] ff = m.get(key);
@@ -144,9 +127,8 @@ public class Main {
                 } else
                     m.put(key, new float[]{f, f, f, 1f});
 
-                j[idx] = -1;
+                ls = i + 1;
             }
-            j[idx]++;
         }
         long stop = new Date().getTime();
         fullTime.addAndGet((int) (stop - start));
@@ -158,7 +140,7 @@ public class Main {
         int c = 0;
         int d;
         for (int i = to; i > from; i--) {
-            d = arr[idx][i] - 48;
+            d = buffer[idx][i] - 48;
             if (d == -3)
                 return -val / 10;
             if (d > -1) {
