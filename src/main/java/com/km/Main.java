@@ -6,22 +6,19 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.locks.ReentrantLock;
 
 public class Main {
-    private static AtomicInteger fullTime = new AtomicInteger(0);
-    private static AtomicInteger callCounter = new AtomicInteger(0);
-    private static final int SIZE = 1000000;
+    private static final AtomicInteger fullTime = new AtomicInteger(0);
+    private static final AtomicInteger callCounter = new AtomicInteger(0);
+    private static final int SIZE = 10000000;
     private static ByteBuffer[] bb;
-    private static ArrayList<Map<String, float[]>> map = new ArrayList<>();
+    private static final ArrayList<Map<String, float[]>> map = new ArrayList<>();
     private static int[] j;
     private static int[] sep;
     private static char[][] arr;
     private static byte[][] buffer;
     private static int CPU_COUNT;
-    private static Thread[] threads;
 
     public static void main(String[] args) {
         CPU_COUNT = 3;//Runtime.getRuntime().availableProcessors() / 3;
@@ -29,7 +26,7 @@ public class Main {
         j = new int[CPU_COUNT];
         sep = new int[CPU_COUNT];
         buffer = new byte[CPU_COUNT][SIZE];
-        threads = new Thread[CPU_COUNT];
+        Thread[] threads = new Thread[CPU_COUNT];
         for (int i = 0; i < CPU_COUNT; i++) {
             bb[i] = ByteBuffer.allocateDirect(SIZE);
             j[i] = 0;
@@ -46,8 +43,6 @@ public class Main {
             FileChannel channel = file.getChannel();
 
             while (channel.read(bb) > -1) {
-                for (int i = 0; i < tCount; i++)
-                    threads[i].join();
                 tCount = 0;
                 for (int t = 0; t < CPU_COUNT; t++) {
                     pos = bb[t].position();
@@ -58,11 +53,13 @@ public class Main {
                         tCount++;
                         final int fpos = pos;
                         final int ft = t;
-                        threads[t] = new Thread(() -> readBuffer(fpos, ft));
+                        final Map<String, float[]> m = map.get(t);
+                        threads[t] = new Thread(() -> readBuffer(fpos, ft, m));
+                        threads[t].start();
                     }
                 }
                 for (int i = 0; i < tCount; i++)
-                    threads[i].start();
+                    threads[i].join();
             }
 
             channel.close();
@@ -126,7 +123,7 @@ public class Main {
         }
     }
 
-    private static void readBuffer(int pos, int idx) {
+    private static void readBuffer(int pos, int idx, Map<String, float[]> m) {
         long start = new Date().getTime();
         for (int i = 0; i < pos; i++) {
             arr[idx][j[idx]] = (char) buffer[idx][i];
@@ -137,15 +134,15 @@ public class Main {
                 String key = new String(arr[idx], 0, sep[idx]);
                 float f = getFloat(sep[idx], j[idx] - 1, idx);
 
-                if (map.get(idx).containsKey(key)) {
-                    float[] ff = map.get(idx).get(key);
+                if (m.containsKey(key)) {
+                    float[] ff = m.get(key);
                     ff[0] = Math.min(f, ff[0]);
                     ff[1] += f;
                     ff[2] = Math.max(f, ff[2]);
                     ff[3]++;
-                    map.get(idx).put(key, ff);
+                    m.put(key, ff);
                 } else
-                    map.get(idx).put(key, new float[]{f, f, f, 1f});
+                    m.put(key, new float[]{f, f, f, 1f});
 
                 j[idx] = -1;
             }
