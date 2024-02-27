@@ -6,9 +6,13 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 public class Main {
+    private static AtomicInteger fullTime = new AtomicInteger(0);
+    private static AtomicInteger callCounter = new AtomicInteger(0);
     private static final int SIZE = 1000000;
     private static ByteBuffer[] bb;
     private static ArrayList<Map<String, float[]>> map = new ArrayList<>();
@@ -18,10 +22,9 @@ public class Main {
     private static byte[][] buffer;
     private static int CPU_COUNT;
     private static Thread[] threads;
-    private static CountDownLatch latch = new CountDownLatch(0);
 
     public static void main(String[] args) {
-        CPU_COUNT = 4;//Runtime.getRuntime().availableProcessors() - 1;
+        CPU_COUNT = 3;//Runtime.getRuntime().availableProcessors() / 3;
         bb = new ByteBuffer[CPU_COUNT];
         j = new int[CPU_COUNT];
         sep = new int[CPU_COUNT];
@@ -35,15 +38,16 @@ public class Main {
         }
         arr = new char[CPU_COUNT][110];
         int pos;
-        int tCount;
+        int tCount = 0;
 
         try {
             long start = new Date().getTime();
-            RandomAccessFile file = new RandomAccessFile("./input4.txt", "r");
+            RandomAccessFile file = new RandomAccessFile("/Users/kacper/repo/1brc/input4.txt", "r");
             FileChannel channel = file.getChannel();
 
             while (channel.read(bb) > -1) {
-                latch.await();
+                for (int i = 0; i < tCount; i++)
+                    threads[i].join();
                 tCount = 0;
                 for (int t = 0; t < CPU_COUNT; t++) {
                     pos = bb[t].position();
@@ -57,7 +61,6 @@ public class Main {
                         threads[t] = new Thread(() -> readBuffer(fpos, ft));
                     }
                 }
-                latch = new CountDownLatch(tCount);
                 for (int i = 0; i < tCount; i++)
                     threads[i].start();
             }
@@ -92,6 +95,9 @@ public class Main {
 
             long stop = new Date().getTime();
             System.out.println("execution time = " + (stop - start));
+            System.out.println("full execution time = " + fullTime.get());
+            System.out.println("number of calls = " + callCounter.get());
+            System.out.println("average call time = " + (float) (fullTime.get()) / (float) (callCounter.get()));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -121,6 +127,7 @@ public class Main {
     }
 
     private static void readBuffer(int pos, int idx) {
+        long start = new Date().getTime();
         for (int i = 0; i < pos; i++) {
             arr[idx][j[idx]] = (char) buffer[idx][i];
             if (buffer[idx][i] == 59) {
@@ -144,7 +151,9 @@ public class Main {
             }
             j[idx]++;
         }
-        latch.countDown();
+        long stop = new Date().getTime();
+        fullTime.addAndGet((int) (stop - start));
+        callCounter.incrementAndGet();
     }
 
     private static float getFloat(int from, int to, int idx) {
