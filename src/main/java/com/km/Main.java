@@ -24,7 +24,7 @@ public class Main {
         buffer = new byte[CPU_COUNT][SIZE + 110];
         Thread[] threads = new Thread[CPU_COUNT];
         for (int i = 0; i < CPU_COUNT; i++) {
-            bb[i] = ByteBuffer.allocateDirect(SIZE);
+            bb[i] = ByteBuffer.allocate(SIZE);
             map.add(new HashMap<>());
         }
         one = ByteBuffer.allocate(1);
