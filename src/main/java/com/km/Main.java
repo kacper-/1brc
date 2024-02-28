@@ -9,7 +9,6 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
-    private static final int[] P10 = new int[]{1, 10, 100};
     private static final AtomicInteger fullTime = new AtomicInteger(0);
     private static final AtomicInteger callCounter = new AtomicInteger(0);
     private static final int SIZE = 10000000;
@@ -33,7 +32,7 @@ public class Main {
         int tCount;
         try {
             long start = new Date().getTime();
-            RandomAccessFile file = new RandomAccessFile("/Users/kacper/repo/1brc/input.txt", "r");
+            RandomAccessFile file = new RandomAccessFile("/Users/kacper/repo/1brc/input4.txt", "r");
             FileChannel channel = file.getChannel();
             boolean read = true;
             while (read) {
@@ -49,6 +48,7 @@ public class Main {
                         for (int a = 0; a < 110; a++) {
                             channel.read(one);
                             byte b = one.get(0);
+                            one.position(0);
                             buffer[t][pos] = b;
                             pos++;
                             if (b == 10)
@@ -116,7 +116,7 @@ public class Main {
             }
             if (buffer[idx][i] == 10) {
                 FastString key = new FastString(buffer[idx], ls, sep);
-                int f = getInt(sep, i - 1, idx);
+                int f = getInt(buffer[idx][i - 5], buffer[idx][i - 4], buffer[idx][i - 3], buffer[idx][i - 1]);
 
                 if (m.containsKey(key)) {
                     int[] ff = m.get(key);
@@ -136,16 +136,14 @@ public class Main {
         callCounter.incrementAndGet();
     }
 
-    private static int getInt(int from, int to, int idx) {
-        int val = 0;
-        int c = 0;
-        for (int ii = to; ii > from; ii--) {
-            if (buffer[idx][ii] > 47) {
-                val += P10[c] * (buffer[idx][ii] - 48);
-                c++;
-            }
-        }
-        if (buffer[idx][from + 1] == 45)
+    private static int getInt(int s, int p3, int p2, int p1) {
+        int val = (p1 & 15) + 10 * (p2 & 15);
+        if (p3 == 59)
+            return val;
+        if (p3 == 45)
+            return -val;
+        val += 100 * (p3 & 15);
+        if (s == 45)
             return -val;
         return val;
     }
