@@ -9,12 +9,13 @@ import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
+    private static final int[] P10 = new int[]{1, 10, 100};
     private static final AtomicInteger fullTime = new AtomicInteger(0);
     private static final AtomicInteger callCounter = new AtomicInteger(0);
     private static final int SIZE = 10000000;
     private static ByteBuffer[] bb;
     private static ByteBuffer one;
-    private static final ArrayList<Map<String, float[]>> map = new ArrayList<>();
+    private static final ArrayList<Map<FastString, int[]>> map = new ArrayList<>();
     private static byte[][] buffer;
     private static int CPU_COUNT;
 
@@ -58,7 +59,7 @@ public class Main {
                     tCount++;
                     final int ft = t;
                     final int fpos = pos;
-                    final Map<String, float[]> m = map.get(t);
+                    final Map<FastString, int[]> m = map.get(t);
                     threads[t] = new Thread(() -> readBuffer(fpos, ft, m));
                 }
                 for (int i = 0; i < tCount; i++)
@@ -69,28 +70,28 @@ public class Main {
 
             channel.close();
             file.close();
-            Map<String, float[]> full = new HashMap<>(map.get(0));
+            Map<FastString, int[]> full = new HashMap<>(map.get(0));
             for (int t = 1; t < CPU_COUNT; t++) {
-                for (String key : map.get(t).keySet()) {
-                    float[] val = map.get(t).get(key);
+                for (FastString key : map.get(t).keySet()) {
+                    int[] val = map.get(t).get(key);
                     if (full.containsKey(key)) {
-                        float[] oldVal = full.get(key);
-                        full.put(key, new float[]{Math.min(oldVal[0], val[0]), oldVal[1] + val[1], Math.max(oldVal[2], val[2]), oldVal[3] + val[3]});
+                        int[] oldVal = full.get(key);
+                        full.put(key, new int[]{Math.min(oldVal[0], val[0]), oldVal[1] + val[1], Math.max(oldVal[2], val[2]), oldVal[3] + val[3]});
                     } else {
                         full.put(key, val);
                     }
                 }
             }
 
-            PriorityQueue<String> pq = new PriorityQueue<>(Comparator.naturalOrder());
+            PriorityQueue<FastString> pq = new PriorityQueue<>(Comparator.naturalOrder());
             pq.addAll(full.keySet());
 
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(System.out));
-            String key;
-            float[] ff;
+            FastString key;
+            int[] ff;
             while ((key = pq.poll()) != null) {
                 ff = full.get(key);
-                writer.write(key + ' ' + ff[0] + ' ' + ff[1] / ff[3] + ' ' + ff[2] + '\n');
+                writer.write(key.toString() + ' ' + ((float) ff[0]) / 10 + ' ' + ((float) ff[1]) / ((float) ff[3] * 10) + ' ' + ((float) ff[2]) / 10 + '\n');
             }
 
             writer.flush();
@@ -105,7 +106,7 @@ public class Main {
         }
     }
 
-    private static void readBuffer(int pos, int idx, Map<String, float[]> m) {
+    private static void readBuffer(int pos, int idx, Map<FastString, int[]> m) {
         long start = new Date().getTime();
         int ls = 0;
         int sep = 0;
@@ -114,18 +115,18 @@ public class Main {
                 sep = i;
             }
             if (buffer[idx][i] == 10) {
-                String key = new String(buffer[idx], ls, sep - ls);
-                float f = getFloat(sep, i - 1, idx);
+                FastString key = new FastString(buffer[idx], ls, sep);
+                int f = getInt(sep, i - 1, idx);
 
                 if (m.containsKey(key)) {
-                    float[] ff = m.get(key);
+                    int[] ff = m.get(key);
                     ff[0] = Math.min(f, ff[0]);
                     ff[1] += f;
                     ff[2] = Math.max(f, ff[2]);
                     ff[3]++;
                     m.put(key, ff);
                 } else
-                    m.put(key, new float[]{f, f, f, 1f});
+                    m.put(key, new int[]{f, f, f, 1});
 
                 ls = i + 1;
             }
@@ -135,28 +136,49 @@ public class Main {
         callCounter.incrementAndGet();
     }
 
-    private static float getFloat(int from, int to, int idx) {
-        float val = 0f;
+    private static int getInt(int from, int to, int idx) {
+        int val = 0;
         int c = 0;
-        int d;
-        for (int i = to; i > from; i--) {
-            d = buffer[idx][i] - 48;
-            if (d == -3)
-                return -val / 10;
-            if (d > -1) {
-                switch (c) {
-                    case 0:
-                        val = d;
-                        break;
-                    case 1:
-                        val += 10 * d;
-                        break;
-                    case 2:
-                        val += 100 * d;
-                }
+        for (int ii = to; ii > from; ii--) {
+            if (buffer[idx][ii] > 47) {
+                val += P10[c] * (buffer[idx][ii] - 48);
                 c++;
             }
         }
-        return val / 10;
+        if (buffer[idx][from + 1] == 45)
+            return -val;
+        return val;
+    }
+
+    static class FastString implements Comparable {
+        byte[] content;
+
+        FastString(byte[] buffer, int from, int to) {
+            content = Arrays.copyOfRange(buffer, from, to);
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) return true;
+            if (o == null || getClass() != o.getClass()) return false;
+            FastString that = (FastString) o;
+            return Arrays.equals(content, that.content);
+        }
+
+        @Override
+        public int hashCode() {
+            return Arrays.hashCode(content);
+        }
+
+        @Override
+        public String toString() {
+            return new String(content);
+        }
+
+        @Override
+        public int compareTo(Object o) {
+            FastString that = (FastString) o;
+            return Arrays.compare(content, that.content);
+        }
     }
 }
