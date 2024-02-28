@@ -61,9 +61,8 @@ public class Main {
                     final int fpos = pos;
                     final Map<String, int[]> m = map.get(t);
                     threads[t] = new Thread(() -> readBuffer(fpos, ft, m));
+                    threads[t].start();
                 }
-                for (int i = 0; i < tCount; i++)
-                    threads[i].start();
                 for (int i = 0; i < tCount; i++)
                     threads[i].join();
             }
@@ -115,7 +114,7 @@ public class Main {
                 sep = i;
             }
             if (buffer[idx][i] == 10) {
-                String key = new String(buffer[idx], ls, sep-ls);
+                String key = new String(buffer[idx], ls, sep - ls);
                 int f = getInt(buffer[idx][i - 5], buffer[idx][i - 4], buffer[idx][i - 3], buffer[idx][i - 1]);
 
                 if (m.containsKey(key)) {
