@@ -14,7 +14,7 @@ public class Main {
     private static final int SIZE = 10000000;
     private static ByteBuffer[] bb;
     private static ByteBuffer one;
-    private static final ArrayList<Map<FastString, int[]>> map = new ArrayList<>();
+    private static final ArrayList<Map<String, int[]>> map = new ArrayList<>();
     private static byte[][] buffer;
     private static int CPU_COUNT;
 
@@ -32,7 +32,7 @@ public class Main {
         int tCount;
         try {
             long start = new Date().getTime();
-            RandomAccessFile file = new RandomAccessFile("/Users/kacper/repo/1brc/input4.txt", "r");
+            RandomAccessFile file = new RandomAccessFile("/Users/kacper/repo/1brc/input.txt", "r");
             FileChannel channel = file.getChannel();
             boolean read = true;
             while (read) {
@@ -59,7 +59,7 @@ public class Main {
                     tCount++;
                     final int ft = t;
                     final int fpos = pos;
-                    final Map<FastString, int[]> m = map.get(t);
+                    final Map<String, int[]> m = map.get(t);
                     threads[t] = new Thread(() -> readBuffer(fpos, ft, m));
                 }
                 for (int i = 0; i < tCount; i++)
@@ -70,9 +70,9 @@ public class Main {
 
             channel.close();
             file.close();
-            Map<FastString, int[]> full = new HashMap<>(map.get(0));
+            Map<String, int[]> full = new HashMap<>(map.get(0));
             for (int t = 1; t < CPU_COUNT; t++) {
-                for (FastString key : map.get(t).keySet()) {
+                for (String key : map.get(t).keySet()) {
                     int[] val = map.get(t).get(key);
                     if (full.containsKey(key)) {
                         int[] oldVal = full.get(key);
@@ -83,15 +83,15 @@ public class Main {
                 }
             }
 
-            PriorityQueue<FastString> pq = new PriorityQueue<>(Comparator.naturalOrder());
+            PriorityQueue<String> pq = new PriorityQueue<>(Comparator.naturalOrder());
             pq.addAll(full.keySet());
 
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(System.out));
-            FastString key;
+            String key;
             int[] ff;
             while ((key = pq.poll()) != null) {
                 ff = full.get(key);
-                writer.write(key.toString() + ' ' + ((float) ff[0]) / 10 + ' ' + ((float) ff[1]) / ((float) ff[3] * 10) + ' ' + ((float) ff[2]) / 10 + '\n');
+                writer.write(key + ' ' + ((float) ff[0]) / 10 + ' ' + ((float) ff[1]) / ((float) ff[3] * 10) + ' ' + ((float) ff[2]) / 10 + '\n');
             }
 
             writer.flush();
@@ -106,7 +106,7 @@ public class Main {
         }
     }
 
-    private static void readBuffer(int pos, int idx, Map<FastString, int[]> m) {
+    private static void readBuffer(int pos, int idx, Map<String, int[]> m) {
         long start = new Date().getTime();
         int ls = 0;
         int sep = 0;
@@ -115,7 +115,7 @@ public class Main {
                 sep = i;
             }
             if (buffer[idx][i] == 10) {
-                FastString key = new FastString(buffer[idx], ls, sep);
+                String key = new String(buffer[idx], ls, sep-ls);
                 int f = getInt(buffer[idx][i - 5], buffer[idx][i - 4], buffer[idx][i - 3], buffer[idx][i - 1]);
 
                 if (m.containsKey(key)) {
@@ -146,37 +146,5 @@ public class Main {
         if (s == 45)
             return -val;
         return val;
-    }
-
-    static class FastString implements Comparable {
-        byte[] content;
-
-        FastString(byte[] buffer, int from, int to) {
-            content = Arrays.copyOfRange(buffer, from, to);
-        }
-
-        @Override
-        public boolean equals(Object o) {
-            if (this == o) return true;
-            if (o == null || getClass() != o.getClass()) return false;
-            FastString that = (FastString) o;
-            return Arrays.equals(content, that.content);
-        }
-
-        @Override
-        public int hashCode() {
-            return Arrays.hashCode(content);
-        }
-
-        @Override
-        public String toString() {
-            return new String(content);
-        }
-
-        @Override
-        public int compareTo(Object o) {
-            FastString that = (FastString) o;
-            return Arrays.compare(content, that.content);
-        }
     }
 }
