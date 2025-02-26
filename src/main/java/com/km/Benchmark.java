@@ -37,7 +37,7 @@ import java.util.concurrent.atomic.AtomicLong;
  *  Van Phu DO for demonstrating the lookup tables based on masks instead of bit shifting
  */
 public class Benchmark {
-    private static final String FILE = "/Users/kacper/repo/1brc/input.txt";
+    private static final String FILE = "/Users/kacper/repo/1brc/input4.txt";
     private static final int MIN_TEMP = -999;
     private static final int MAX_TEMP = 999;
     private static final int MAX_NAME_LENGTH = 100;

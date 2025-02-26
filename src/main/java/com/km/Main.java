@@ -6,11 +6,8 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class Main {
-    private static final AtomicInteger fullTime = new AtomicInteger(0);
-    private static final AtomicInteger callCounter = new AtomicInteger(0);
     private static final int SIZE = 100000000;
     private static ByteBuffer[] bb;
     private static ByteBuffer one;
@@ -19,8 +16,7 @@ public class Main {
     private static int CPU_COUNT;
 
     public static void main(String[] args) {
-        CPU_COUNT = Runtime.getRuntime().availableProcessors() - 2;
-        System.out.println(CPU_COUNT);
+        CPU_COUNT = Runtime.getRuntime().availableProcessors();
         bb = new ByteBuffer[CPU_COUNT];
         buffer = new byte[CPU_COUNT][SIZE + 110];
         Thread[] threads = new Thread[CPU_COUNT];
@@ -32,7 +28,6 @@ public class Main {
         int pos;
         int tCount;
         try {
-            long start = new Date().getTime();
             RandomAccessFile file = new RandomAccessFile("/Users/kacper/repo/1brc/input4.txt", "r");
             FileChannel channel = file.getChannel();
             boolean read = true;
@@ -95,19 +90,12 @@ public class Main {
             }
 
             writer.flush();
-
-            long stop = new Date().getTime();
-            System.out.println("execution time = " + (stop - start));
-            System.out.println("full execution time = " + fullTime.get());
-            System.out.println("number of calls = " + callCounter.get());
-            System.out.println("average call time = " + (float) (fullTime.get()) / (float) (callCounter.get()));
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
 
     private static void readBuffer(int pos, int idx, Map<String, int[]> m) {
-        long start = new Date().getTime();
         int ls = 0;
         int sep = 0;
         for (int i = 0; i < pos; i++) {
@@ -131,9 +119,6 @@ public class Main {
                 ls = i + 1;
             }
         }
-        long stop = new Date().getTime();
-        fullTime.addAndGet((int) (stop - start));
-        callCounter.incrementAndGet();
     }
 
     private static int getInt(int s, int p3, int p2, int p1) {
