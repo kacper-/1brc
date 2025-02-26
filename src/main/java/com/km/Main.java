@@ -11,7 +11,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Main {
     private static final AtomicInteger fullTime = new AtomicInteger(0);
     private static final AtomicInteger callCounter = new AtomicInteger(0);
-    private static final int SIZE = 10000000;
+    private static final int SIZE = 100000000;
     private static ByteBuffer[] bb;
     private static ByteBuffer one;
     private static final ArrayList<Map<String, int[]>> map = new ArrayList<>();
@@ -20,6 +20,7 @@ public class Main {
 
     public static void main(String[] args) {
         CPU_COUNT = Runtime.getRuntime().availableProcessors() - 2;
+        System.out.println(CPU_COUNT);
         bb = new ByteBuffer[CPU_COUNT];
         buffer = new byte[CPU_COUNT][SIZE + 110];
         Thread[] threads = new Thread[CPU_COUNT];
@@ -32,7 +33,7 @@ public class Main {
         int tCount;
         try {
             long start = new Date().getTime();
-            RandomAccessFile file = new RandomAccessFile("/Users/kacper/repo/1brc/input.txt", "r");
+            RandomAccessFile file = new RandomAccessFile("/Users/kacper/repo/1brc/input4.txt", "r");
             FileChannel channel = file.getChannel();
             boolean read = true;
             while (read) {

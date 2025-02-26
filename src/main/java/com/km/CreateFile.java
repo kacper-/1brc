@@ -7,7 +7,7 @@ import java.util.Locale;
 import java.util.Random;
 
 public class CreateFile {
-    private static final int SIZE = 100000000;
+    private static final int SIZE = 1000000000;
     private static final int ID_COUNT = 10000;
     private static final String SEPARATOR = ";";
 
