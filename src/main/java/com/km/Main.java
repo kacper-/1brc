@@ -1,17 +1,18 @@
 package com.km;
 
-import java.io.BufferedWriter;
-import java.io.OutputStreamWriter;
-import java.io.RandomAccessFile;
+import java.io.*;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
+import java.util.function.BiConsumer;
 
 public class Main {
     private static final int SIZE = 100000000;
     private static ByteBuffer[] bb;
     private static ByteBuffer one;
-    private static final ArrayList<Map<String, int[]>> map = new ArrayList<>();
+    private static final ArrayList<MyMap> map = new ArrayList<>();
     private static byte[][] buffer;
     private static int CPU_COUNT;
 
@@ -22,7 +23,7 @@ public class Main {
         Thread[] threads = new Thread[CPU_COUNT];
         for (int i = 0; i < CPU_COUNT; i++) {
             bb[i] = ByteBuffer.allocate(SIZE);
-            map.add(new HashMap<>());
+            map.add(new MyMap());
         }
         one = ByteBuffer.allocate(1);
         int pos;
@@ -55,7 +56,7 @@ public class Main {
                     tCount++;
                     final int ft = t;
                     final int fpos = pos;
-                    final Map<String, int[]> m = map.get(t);
+                    final MyMap m = map.get(t);
                     threads[t] = new Thread(() -> readBuffer(fpos, ft, m));
                     threads[t].start();
                 }
@@ -65,9 +66,11 @@ public class Main {
 
             channel.close();
             file.close();
-            Map<String, int[]> full = new HashMap<>(map.get(0));
+            MyMap full = map.get(0);
             for (int t = 1; t < CPU_COUNT; t++) {
-                for (String key : map.get(t).keySet()) {
+                map.get(t).resetIterator();
+                String key;
+                while ((key = map.get(t).next()) != null) {
                     int[] val = map.get(t).get(key);
                     if (full.containsKey(key)) {
                         int[] oldVal = full.get(key);
@@ -79,10 +82,12 @@ public class Main {
             }
 
             PriorityQueue<String> pq = new PriorityQueue<>(Comparator.naturalOrder());
-            pq.addAll(full.keySet());
+            full.resetIterator();
+            String key;
+            while ((key = full.next()) != null)
+                pq.add(key);
 
             BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(System.out));
-            String key;
             int[] ff;
             while ((key = pq.poll()) != null) {
                 ff = full.get(key);
@@ -95,7 +100,7 @@ public class Main {
         }
     }
 
-    private static void readBuffer(int pos, int idx, Map<String, int[]> m) {
+    private static void readBuffer(int pos, int idx, MyMap m) {
         int ls = 0;
         int sep = 0;
         for (int i = 0; i < pos; i++) {
@@ -131,5 +136,85 @@ public class Main {
         if (s == 45)
             return -val;
         return val;
+    }
+
+    static final class MyMap {
+        static int CAP_POW = 14;
+        static int MASK = 16383;
+        int iterator = 0;
+        Node nodeIterator = null;
+        Node[] nodes = new Node[1 << CAP_POW];
+
+        boolean containsKey(String key) {
+            Node node = nodes[hashToIndex(key.hashCode())];
+            if(node == null)
+                return false;
+
+            while(node != null) {
+                if(node.key.equals(key))
+                    return true;
+                node = node.next;
+            }
+
+            return false;
+        }
+
+        int[] get(String key) {
+            Node node = nodes[hashToIndex(key.hashCode())];
+            do {
+                if(node.key.equals(key))
+                    return node.value;
+                node = node.next;
+            } while(node != null);
+            return null;
+        }
+
+        void put(String key, int[] ff) {
+            int idx = hashToIndex(key.hashCode());
+            Node node = nodes[idx];
+            if(node == null) {
+                nodes[idx] = new Node(key, ff);
+            } else {
+                while(node.next != null)
+                    node = node.next;
+                node.next = new Node(key, ff);
+            }
+        }
+
+        void resetIterator() {
+            iterator = 0;
+            nodeIterator = null;
+        }
+
+        String next() {
+            if(nodeIterator != null && nodeIterator.next != null) {
+                nodeIterator = nodeIterator.next;
+                return nodeIterator.key;
+            }
+
+            nodeIterator = null;
+            while(nodeIterator == null && (iterator < nodes.length - 1)) {
+                iterator++;
+                nodeIterator = nodes[iterator];
+            }
+            if(nodeIterator != null)
+                return nodeIterator.key;
+            return null;
+        }
+
+        int hashToIndex(int hash) {
+            return hash & MASK;
+        }
+    }
+
+    static final class Node {
+        Node(String k, int[] v) {
+            key = k;
+            value = v;
+        }
+
+        String key;
+        int[] value;
+        Node next = null;
     }
 }
