@@ -6,6 +6,8 @@ import java.nio.channels.FileChannel;
 import java.util.*;
 
 public class Main {
+    private static final int ITERATIONS = 10000;
+    private static final int ITER2 = 10000;
     private static final int SIZE = 100000000;
     private static ByteBuffer[] bb;
     private static ByteBuffer one;
@@ -14,16 +16,45 @@ public class Main {
     private static int CPU_COUNT;
 
     public static void main(String[] args) {
-        System.out.println("start");
+        long start = new Date().getTime();
+        for(int i=0;i<ITER2;i++)
+            runMyMap();
+        System.out.println("mymap time="+(new Date().getTime()-start));
+        start = new Date().getTime();
+        for(int i=0;i<ITER2;i++)
+            runHashMap();
+        System.out.println("hashmap time="+(new Date().getTime()-start));
+    }
+
+    static List<int[]> runMyMap() {
         MyMap map = new MyMap();
-        System.out.println("map created");
-        for(int i=0;i<25;i++)
+        for(int i=0;i<ITERATIONS;i++)
             map.put("id"+i, new int[]{i, 2*i});
-        System.out.println("map filled");
         String key;
-        while ((key = map.next()) != null) {
-            System.out.println("key="+key+" value=["+map.get(key)[0]+","+map.get(key)[1]+"]");
+        List<String> keys = new ArrayList<>();
+        List<int[]> nkeys = new ArrayList<>();
+        while ((key = map.next()) != null)
+            keys.add(key);
+        for(String k : keys) {
+            if(map.containsKey(k))
+                nkeys.add(map.get(k));
         }
+        return nkeys;
+    }
+
+    static List<int[]> runHashMap() {
+        Map<String, int[]> map = new HashMap<>();
+        for(int i=0;i<ITERATIONS;i++)
+            map.put("id"+i, new int[]{i, 2*i});
+        List<String> keys = new ArrayList<>();
+        List<int[]> nkeys = new ArrayList<>();
+        for (String key : map.keySet())
+            keys.add(key);
+        for(String k : keys) {
+            if(map.containsKey(k))
+                nkeys.add(map.get(k));
+        }
+        return nkeys;
     }
 
     public static void main2(String[] args) {
