@@ -1,12 +1,9 @@
 package com.km;
 
 import java.io.*;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
-import java.util.function.BiConsumer;
 
 public class Main {
     private static final int SIZE = 100000000;
@@ -17,6 +14,19 @@ public class Main {
     private static int CPU_COUNT;
 
     public static void main(String[] args) {
+        System.out.println("start");
+        MyMap map = new MyMap();
+        System.out.println("map created");
+        for(int i=0;i<25;i++)
+            map.put("id"+i, new int[]{i, 2*i});
+        System.out.println("map filled");
+        String key;
+        while ((key = map.next()) != null) {
+            System.out.println("key="+key+" value=["+map.get(key)[0]+","+map.get(key)[1]+"]");
+        }
+    }
+
+    public static void main2(String[] args) {
         CPU_COUNT = Runtime.getRuntime().availableProcessors();
         bb = new ByteBuffer[CPU_COUNT];
         buffer = new byte[CPU_COUNT][SIZE + 110];
