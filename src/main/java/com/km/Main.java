@@ -6,8 +6,6 @@ import java.nio.channels.FileChannel;
 import java.util.*;
 
 public class Main {
-    private static final int ITERATIONS = 10000;
-    private static final int ITER2 = 10000;
     private static final int SIZE = 100000000;
     private static ByteBuffer[] bb;
     private static ByteBuffer one;
@@ -16,48 +14,6 @@ public class Main {
     private static int CPU_COUNT;
 
     public static void main(String[] args) {
-        long start = new Date().getTime();
-        for(int i=0;i<ITER2;i++)
-            runMyMap();
-        System.out.println("mymap time="+(new Date().getTime()-start));
-        start = new Date().getTime();
-        for(int i=0;i<ITER2;i++)
-            runHashMap();
-        System.out.println("hashmap time="+(new Date().getTime()-start));
-    }
-
-    static List<int[]> runMyMap() {
-        MyMap map = new MyMap();
-        for(int i=0;i<ITERATIONS;i++)
-            map.put("id"+i, new int[]{i, 2*i});
-        String key;
-        List<String> keys = new ArrayList<>();
-        List<int[]> nkeys = new ArrayList<>();
-        while ((key = map.next()) != null)
-            keys.add(key);
-        for(String k : keys) {
-            if(map.containsKey(k))
-                nkeys.add(map.get(k));
-        }
-        return nkeys;
-    }
-
-    static List<int[]> runHashMap() {
-        Map<String, int[]> map = new HashMap<>();
-        for(int i=0;i<ITERATIONS;i++)
-            map.put("id"+i, new int[]{i, 2*i});
-        List<String> keys = new ArrayList<>();
-        List<int[]> nkeys = new ArrayList<>();
-        for (String key : map.keySet())
-            keys.add(key);
-        for(String k : keys) {
-            if(map.containsKey(k))
-                nkeys.add(map.get(k));
-        }
-        return nkeys;
-    }
-
-    public static void main2(String[] args) {
         CPU_COUNT = Runtime.getRuntime().availableProcessors();
         bb = new ByteBuffer[CPU_COUNT];
         buffer = new byte[CPU_COUNT][SIZE + 110];
@@ -108,14 +64,17 @@ public class Main {
             channel.close();
             file.close();
             MyMap full = map.get(0);
+            int[] oldVal;
             for (int t = 1; t < CPU_COUNT; t++) {
                 map.get(t).resetIterator();
                 String key;
                 while ((key = map.get(t).next()) != null) {
                     int[] val = map.get(t).get(key);
-                    if (full.containsKey(key)) {
-                        int[] oldVal = full.get(key);
-                        full.put(key, new int[]{Math.min(oldVal[0], val[0]), oldVal[1] + val[1], Math.max(oldVal[2], val[2]), oldVal[3] + val[3]});
+                    if ((oldVal = full.get(key)) != null) {
+                        oldVal[0] = Math.min(oldVal[0], val[0]);
+                        oldVal[1] = oldVal[1] + val[1];
+                        oldVal[2] = Math.max(oldVal[2], val[2]);
+                        oldVal[3] = oldVal[3] + val[3];
                     } else {
                         full.put(key, val);
                     }
@@ -132,9 +91,9 @@ public class Main {
             int[] ff;
             while ((key = pq.poll()) != null) {
                 ff = full.get(key);
-                writer.write(key + ' ' + ((float) ff[0]) / 10 + ' ' + ((float) ff[1]) / ((float) ff[3] * 10) + ' ' + ((float) ff[2]) / 10 + '\n');
+                writer.write(key + ' ' + ((float) ff[0]) / 10 + ' ' + ((float) ff[1]) / ((float) ff[3] * 10) + ' ' + ((float) ff[2]) / 10 + ", ");
             }
-
+            writer.write('\n');
             writer.flush();
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -144,6 +103,7 @@ public class Main {
     private static void readBuffer(int pos, int idx, MyMap m) {
         int ls = 0;
         int sep = 0;
+        int[] e;
         for (int i = 0; i < pos; i++) {
             if (buffer[idx][i] == 59) {
                 sep = i;
@@ -152,13 +112,11 @@ public class Main {
                 String key = new String(buffer[idx], ls, sep - ls);
                 int f = getInt(buffer[idx][i - 5], buffer[idx][i - 4], buffer[idx][i - 3], buffer[idx][i - 1]);
 
-                if (m.containsKey(key)) {
-                    int[] ff = m.get(key);
-                    ff[0] = Math.min(f, ff[0]);
-                    ff[1] += f;
-                    ff[2] = Math.max(f, ff[2]);
-                    ff[3]++;
-                    m.put(key, ff);
+                if ( (e = m.get(key)) != null) {
+                    e[0] = Math.min(f, e[0]);
+                    e[1] += f;
+                    e[2] = Math.max(f, e[2]);
+                    e[3]++;
                 } else
                     m.put(key, new int[]{f, f, f, 1});
 
@@ -180,42 +138,28 @@ public class Main {
     }
 
     static final class MyMap {
-        static int CAP_POW = 14;
-        static int MASK = 16383;
+        static int CAP_POW = 17;
+        static int MASK = ((int)Math.pow(2, CAP_POW))-1;
         int iterator = 0;
         Node nodeIterator = null;
         Node[] nodes = new Node[1 << CAP_POW];
 
-        boolean containsKey(String key) {
-            Node node = nodes[hashToIndex(key.hashCode())];
-            if(node == null)
-                return false;
-
-            while(node != null) {
-                if(node.key.equals(key))
-                    return true;
-                node = node.next;
-            }
-
-            return false;
-        }
-
         int[] get(String key) {
-            Node node = nodes[hashToIndex(key.hashCode())];
-            do {
+            Node node = nodes[key.hashCode() & MASK];
+            while(node != null) {
                 if(node.key.equals(key))
                     return node.value;
                 node = node.next;
-            } while(node != null);
+            }
             return null;
         }
 
         void put(String key, int[] ff) {
-            int idx = hashToIndex(key.hashCode());
-            Node node = nodes[idx];
-            if(node == null) {
+            int idx = key.hashCode() & MASK;
+            if(nodes[idx] == null) {
                 nodes[idx] = new Node(key, ff);
             } else {
+                Node node = nodes[idx];
                 while(node.next != null)
                     node = node.next;
                 node.next = new Node(key, ff);
@@ -242,10 +186,6 @@ public class Main {
                 return nodeIterator.key;
             return null;
         }
-
-        int hashToIndex(int hash) {
-            return hash & MASK;
-        }
     }
 
     static final class Node {
@@ -254,8 +194,8 @@ public class Main {
             value = v;
         }
 
-        String key;
-        int[] value;
+        final String key;
+        final int[] value;
         Node next = null;
     }
 }

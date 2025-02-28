@@ -7,7 +7,7 @@ import java.util.Locale;
 import java.util.Random;
 
 public class CreateFile {
-    private static final int SIZE = 1000000000;
+    private static final int SIZE = 100000000;
     private static final int ID_COUNT = 10000;
     private static final String SEPARATOR = ";";
 
@@ -16,7 +16,7 @@ public class CreateFile {
         for (int i = 0; i < ID_COUNT; i++)
             ids[i] = String.format("id%04d", i);
 
-        File file = new File("./input4.txt");
+        File file = new File("./input3.txt");
         try {
             BufferedOutputStream writer = new BufferedOutputStream(new FileOutputStream(file));
             int j;
