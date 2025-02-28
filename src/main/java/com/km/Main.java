@@ -4,6 +4,7 @@ import java.io.*;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.*;
+import java.util.concurrent.ArrayBlockingQueue;
 
 public class Main {
     private static final int SIZE = 100000000;
@@ -11,10 +12,10 @@ public class Main {
     private static ByteBuffer one;
     private static final ArrayList<MyMap> map = new ArrayList<>();
     private static byte[][] buffer;
-    private static int CPU_COUNT;
+    private static final int CPU_COUNT = Runtime.getRuntime().availableProcessors();
+    private static final ArrayBlockingQueue<Integer> queue = new ArrayBlockingQueue<>(CPU_COUNT);
 
     public static void main(String[] args) {
-        CPU_COUNT = Runtime.getRuntime().availableProcessors();
         bb = new ByteBuffer[CPU_COUNT];
         buffer = new byte[CPU_COUNT][SIZE + 110];
         Thread[] threads = new Thread[CPU_COUNT];
@@ -24,41 +25,38 @@ public class Main {
         }
         one = ByteBuffer.allocate(1);
         int pos;
-        int tCount;
         try {
             RandomAccessFile file = new RandomAccessFile("/Users/kacper/repo/1brc/input4.txt", "r");
             FileChannel channel = file.getChannel();
             boolean read = true;
+            for (int i = 0; i < CPU_COUNT; i++)
+                queue.add(i);
+            int wt;
             while (read) {
-                tCount = 0;
-                for (int t = 0; t < CPU_COUNT; t++) {
-                    if (channel.read(bb[t]) < 0) {
-                        read = false;
-                        break;
-                    }
-                    pos = bb[t].position();
-                    bb[t].get(0, buffer[t], 0, pos);
-                    if (channel.position() < channel.size() && buffer[t][pos - 1] != 10) {
-                        for (int a = 0; a < 110; a++) {
-                            channel.read(one);
-                            byte b = one.get(0);
-                            one.position(0);
-                            buffer[t][pos] = b;
-                            pos++;
-                            if (b == 10)
-                                break;
-                        }
-                    }
-                    bb[t].position(0);
-                    tCount++;
-                    final int ft = t;
-                    final int fpos = pos;
-                    final MyMap m = map.get(t);
-                    threads[t] = new Thread(() -> readBuffer(fpos, ft, m));
-                    threads[t].start();
+                wt = queue.take();
+                if (channel.read(bb[wt]) < 0) {
+                    read = false;
+                    break;
                 }
-                for (int i = 0; i < tCount; i++)
-                    threads[i].join();
+                pos = bb[wt].position();
+                bb[wt].get(0, buffer[wt], 0, pos);
+                if (channel.position() < channel.size() && buffer[wt][pos - 1] != 10) {
+                    for (int a = 0; a < 110; a++) {
+                        channel.read(one);
+                        byte b = one.get(0);
+                        one.position(0);
+                        buffer[wt][pos] = b;
+                        pos++;
+                        if (b == 10)
+                            break;
+                    }
+                }
+                bb[wt].position(0);
+                final int ft = wt;
+                final int fpos = pos;
+                final MyMap m = map.get(wt);
+                threads[wt] = new Thread(() -> readBuffer(fpos, ft, m));
+                threads[wt].start();
             }
 
             channel.close();
@@ -123,6 +121,7 @@ public class Main {
                 ls = i + 1;
             }
         }
+        queue.add(idx);
     }
 
     private static int getInt(int s, int p3, int p2, int p1) {
